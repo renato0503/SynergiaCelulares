@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulador ERP — Empresa ALFA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useMemo, useState } = React;
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 10);
+    }
+
+    const CURRENCIES = ["BRL", "USD"]; // simples
+
+    function seed() {
+      const sp1 = { id: uid(), name: "FoxParts", country: "CN" };
+      const sp2 = { id: uid(), name: "BR Placas", country: "BR" };
+      const sp3 = { id: uid(), name: "GlassCo", country: "US" };
+
+      const cc1 = { id: uid(), name: "Logística", monthlyCost: 180000 };
+      const cc2 = { id: uid(), name: "Qualidade", monthlyCost: 120000 };
+      const cc3 = { id: uid(), name: "Administrativo", monthlyCost: 90000 };
+
+      const p1 = { id: uid(), name: "ALFA X1", sku: "AX1", channel: "Varejo", price: 1800, leadTimeDays: 7, reworkRate: 0.02, returnRate: 0.015 };
+      const p2 = { id: uid(), name: "ALFA M Pro", sku: "AMP", channel: "Online", price: 2400, leadTimeDays: 10, reworkRate: 0.03, returnRate: 0.02 };
+      const p3 = { id: uid(), name: "ALFA Lite", sku: "ALT", channel: "Distribuidor", price: 1200, leadTimeDays: 5, reworkRate: 0.015, returnRate: 0.025 };
+
+      const bom = [
+        { id: uid(), productId: p1.id, component: "Tela 6.1", qty: 1, unitCost: 35, currency: "USD", supplierId: sp3.id },
+        { id: uid(), productId: p1.id, component: "Placa lógica X1", qty: 1, unitCost: 420, currency: "BRL", supplierId: sp2.id },
+        { id: uid(), productId: p1.id, component: "Bateria 4000mAh", qty: 1, unitCost: 12, currency: "USD", supplierId: sp1.id },
+        { id: uid(), productId: p2.id, component: "Tela 6.7 OLED", qty: 1, unitCost: 70, currency: "USD", supplierId: sp3.id },
+        { id: uid(), productId: p2.id, component: "Placa lógica M Pro", qty: 1, unitCost: 680, currency: "BRL", supplierId: sp2.id },
+        { id: uid(), productId: p2.id, component: "Bateria 5000mAh", qty: 1, unitCost: 18, currency: "USD", supplierId: sp1.id },
+        { id: uid(), productId: p3.id, component: "Tela 5.8", qty: 1, unitCost: 25, currency: "USD", supplierId: sp3.id },
+        { id: uid(), productId: p3.id, component: "Placa lógica Lite", qty: 1, unitCost: 300, currency: "BRL", supplierId: sp2.id },
+        { id: uid(), productId: p3.id, component: "Bateria 3500mAh", qty: 1, unitCost: 9, currency: "USD", supplierId: sp1.id },
+      ];
+
+      const labors = [
+        { id: uid(), productId: p1.id, minutes: 22, hourlyRate: 38 },
+        { id: uid(), productId: p2.id, minutes: 28, hourlyRate: 42 },
+        { id: uid(), productId: p3.id, minutes: 18, hourlyRate: 35 },
+      ];
+
+      const taxes = [
+        { id: uid(), productId: p1.id, freightPerUnit: 35, salesTaxRate: 0.22 },
+        { id: uid(), productId: p2.id, freightPerUnit: 45, salesTaxRate: 0.22 },
+        { id: uid(), productId: p3.id, freightPerUnit: 25, salesTaxRate: 0.18 },
+      ];
+
+      const plan = [
+        { id: uid(), productId: p1.id, unitsPerMonth: 2500 },
+        { id: uid(), productId: p2.id, unitsPerMonth: 1500 },
+        { id: uid(), productId: p3.id, unitsPerMonth: 4000 },
+      ];
+
+      return { suppliers: [sp1, sp2, sp3], costCenters: [cc1, cc2, cc3], products: [p1, p2, p3], bom, labors, taxes, plan };
+    }
+
+    const fmt = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const pct = (n) => (n * 100).toFixed(1) + "%";
+
+    function useERPState() {
+      const s = seed();
+      const [state, setState] = useState({ ...s, fxUSD: 5.20, scenarioTaxAdder: 0 });
+      function resetSeed() { const s2 = seed(); setState((old) => ({ ...old, ...s2 })); }
+      function addProduct() {
+        const p = { id: uid(), name: "Novo", sku: "SKU" + Math.floor(Math.random() * 999), channel: "Varejo", price: 1000, leadTimeDays: 7, reworkRate: 0.02, returnRate: 0.02 };
+        const plan = { id: uid(), productId: p.id, unitsPerMonth: 500 };
+        const tax = { id: uid(), productId: p.id, freightPerUnit: 20, salesTaxRate: 0.2 };
+        const lab = { id: uid(), productId: p.id, minutes: 20, hourlyRate: 35 };
+        setState((st) => ({ ...st, products: [...st.products, p], plan: [...st.plan, plan], taxes: [...st.taxes, tax], labors: [...st.labors, lab] }));
+      }
+      return { state, setState, resetSeed, addProduct };
+    }
+
+    function useCalculations(state) {
+      const { products, bom, labors, taxes, costCenters, plan, fxUSD, scenarioTaxAdder } = state;
+      const monthlyFixedOverhead = useMemo(() => costCenters.reduce((s, c) => s + c.monthlyCost, 0), [costCenters]);
+      const productionMap = useMemo(() => { const m = new Map(); plan.forEach((p) => m.set(p.productId, p.unitsPerMonth)); return m; }, [plan]);
+      const prodTotals = useMemo(() => {
+        return products.map((prod) => {
+          const units = productionMap.get(prod.id) || 0;
+          const bomItems = bom.filter((b) => b.productId === prod.id);
+          const labor = labors.find((l) => l.productId === prod.id);
+          const tax = taxes.find((t) => t.productId === prod.id);
+          const materialUnit = bomItems.reduce((s, it) => { const unitCostBRL = it.currency === "USD" ? it.unitCost * fxUSD : it.unitCost; return s + unitCostBRL * it.qty; }, 0);
+          const laborUnit = labor ? (labor.minutes / 60) * labor.hourlyRate : 0;
+          const freightUnit = tax ? tax.freightPerUnit : 0;
+          const variableUnit = materialUnit + laborUnit + freightUnit;
+          const revenue = prod.price * units;
+          const salesTaxRate = (tax?.salesTaxRate || 0) + scenarioTaxAdder;
+          const salesTaxes = revenue * Math.max(0, salesTaxRate);
+          const totalUnitsMonth = plan.reduce((s, p) => s + p.unitsPerMonth, 0) || 1;
+          const fixedShare = monthlyFixedOverhead * (units / totalUnitsMonth);
+          const fixedPerUnit = units > 0 ? fixedShare / units : 0;
+          const fullUnitCost = variableUnit + fixedPerUnit;
+          const contributionUnit = prod.price - variableUnit;
+          const contributionTotal = contributionUnit * units;
+          const operatingResult = revenue - salesTaxes - variableUnit * units - fixedShare;
+          const breakEvenUnits = contributionUnit > 0 ? Math.ceil(fixedShare / contributionUnit) : Infinity;
+          return { product: prod, units, materialUnit, laborUnit, freightUnit, variableUnit, fixedPerUnit, fullUnitCost, revenue, salesTaxes, contributionUnit, contributionMarginPct: prod.price > 0 ? contributionUnit / prod.price : 0, contributionTotal, operatingResult, breakEvenUnits };
+        });
+      }, [products, productionMap, bom, labors, taxes, fxUSD, scenarioTaxAdder, monthlyFixedOverhead, plan]);
+
+      const kpis = useMemo(() => {
+        const totalRevenue = prodTotals.reduce((s, r) => s + r.revenue, 0);
+        const totalSalesTaxes = prodTotals.reduce((s, r) => s + r.salesTaxes, 0);
+        const totalVariable = prodTotals.reduce((s, r) => s + r.variableUnit * r.units, 0);
+        const totalContribution = prodTotals.reduce((s, r) => s + r.contributionTotal, 0);
+        const operatingIncome = totalRevenue - totalSalesTaxes - totalVariable - monthlyFixedOverhead;
+        const avgCostPerUnit = (() => { const totalUnits = plan.reduce((s, p) => s + p.unitsPerMonth, 0) || 1; const totalFullCost = prodTotals.reduce((s, r) => s + r.fullUnitCost * r.units, 0); return totalFullCost / totalUnits; })();
+        const weightedReturnRate = (() => { const totalUnits = plan.reduce((s, p) => s + p.unitsPerMonth, 0) || 1; return products.reduce((acc, p) => { const u = plan.find((x) => x.productId === p.id)?.unitsPerMonth || 0; return acc + p.returnRate * (u / totalUnits); }, 0); })();
+        return { totalRevenue, totalSalesTaxes, totalVariable, monthlyFixedOverhead, totalContribution, operatingIncome, avgCostPerUnit, weightedReturnRate };
+      }, [prodTotals, plan, products, monthlyFixedOverhead]);
+
+      return { prodTotals, kpis };
+    }
+
+    function NumberInput({ value, onChange, step = 1, min = 0 }) {
+      return (
+        <input type="number" className="w-full border rounded px-2 py-1" value={Number.isFinite(value) ? value : 0} step={step} min={min} onChange={(e) => onChange(parseFloat(e.target.value || "0"))} />
+      );
+    }
+
+    function SimpleTable({ cols, rows, rowKey }) {
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100">
+                {cols.map((c, i) => (
+                  <th key={i} className="text-left px-3 py-2 font-medium">{c.header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={rowKey(r, i)} className="border-b">
+                  {cols.map((c, j) => (
+                    <td key={j} className="px-3 py-2 align-top">{c.render(r, i)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    function toCSV(rows, columns) {
+      const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const header = columns.map(esc).join(",");
+      const lines = rows.map((r) => columns.map((c) => esc(r[c])).join(","));
+      return [header, ...lines].join("\n");
+    }
+    function download(name, content) {
+      const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+    function CadastroProdutos({ state, setState }) {
+      function update(prodId, patch) { setState((st) => ({ ...st, products: st.products.map((p) => (p.id === prodId ? { ...p, ...patch } : p)) })); }
+      function supplierDefault(st) { return st.suppliers[0]?.id || ""; }
+      function addBom(prodId) { const it = { id: uid(), productId: prodId, component: "Componente", qty: 1, unitCost: 10, currency: "BRL", supplierId: supplierDefault(state) }; setState((st) => ({ ...st, bom: [...st.bom, it] })); }
+      function updateBom(itId, patch) { setState((st) => ({ ...st, bom: st.bom.map((b) => (b.id === itId ? { ...b, ...patch } : b)) })); }
+      function removeBom(itId) { setState((st) => ({ ...st, bom: st.bom.filter((b) => b.id !== itId) })); }
+      function updateLabor(prodId, patch) { setState((st) => ({ ...st, labors: st.labors.map((l) => (l.productId === prodId ? { ...l, ...patch } : l)) })); }
+      function updateTax(prodId, patch) { setState((st) => ({ ...st, taxes: st.taxes.map((t) => (t.productId === prodId ? { ...t, ...patch } : t)) })); }
+      function updatePlan(prodId, unitsPerMonth) { setState((st) => ({ ...st, plan: st.plan.map((p) => (p.productId === prodId ? { ...p, unitsPerMonth } : p)) })); }
+
+      return (
+        <div className="grid gap-6">
+          {state.products.map((p) => {
+            const labor = state.labors.find((l) => l.productId === p.id);
+            const tax = state.taxes.find((t) => t.productId === p.id);
+            const units = state.plan.find((pl) => pl.productId === p.id)?.unitsPerMonth || 0;
+            const items = state.bom.filter((b) => b.productId === p.id);
+            return (
+              <div key={p.id} className="bg-white rounded-2xl shadow p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">{p.name} — {p.sku}</h3>
+                  <button className="text-sm px-3 py-1 border rounded" onClick={() => addBom(p.id)}>Adicionar componente</button>
+                </div>
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div className="grid gap-1"><label className="text-sm">Nome</label><input className="border rounded px-2 py-1" value={p.name} onChange={(e) => update(p.id, { name: e.target.value })} /></div>
+                  <div className="grid gap-1"><label className="text-sm">SKU</label><input className="border rounded px-2 py-1" value={p.sku} onChange={(e) => update(p.id, { sku: e.target.value })} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Canal</label>
+                    <select className="border rounded px-2 py-1" value={p.channel} onChange={(e) => update(p.id, { channel: e.target.value })}>
+                      <option>Varejo</option><option>Online</option><option>Distribuidor</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-1"><label className="text-sm">Preço BRL</label><NumberInput value={p.price} onChange={(n) => update(p.id, { price: n })} step={10} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Lead time dias</label><NumberInput value={p.leadTimeDays} onChange={(n) => update(p.id, { leadTimeDays: n })} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Retrabalho %</label><NumberInput value={p.reworkRate} onChange={(n) => update(p.id, { reworkRate: n })} step={0.005} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Devolução %</label><NumberInput value={p.returnRate} onChange={(n) => update(p.id, { returnRate: n })} step={0.005} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Plano unidades mês</label><NumberInput value={units} onChange={(n) => updatePlan(p.id, n)} step={50} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Mão de obra min/unid</label><NumberInput value={labor?.minutes || 0} onChange={(n) => updateLabor(p.id, { minutes: n })} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Custo hora BRL</label><NumberInput value={labor?.hourlyRate || 0} onChange={(n) => updateLabor(p.id, { hourlyRate: n })} step={1} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Frete por unidade BRL</label><NumberInput value={tax?.freightPerUnit || 0} onChange={(n) => updateTax(p.id, { freightPerUnit: n })} step={1} /></div>
+                  <div className="grid gap-1"><label className="text-sm">Alíquota sobre vendas %</label><NumberInput value={tax?.salesTaxRate || 0} onChange={(n) => updateTax(p.id, { salesTaxRate: n })} step={0.01} /></div>
+                </div>
+                <div className="mt-4">
+                  <div className="text-sm font-medium mb-2">Ficha técnica</div>
+                  <SimpleTable
+                    cols={[{ header: "Componente", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.component} onChange={(e) => updateBom(r.id, { component: e.target.value })} /> },
+                           { header: "Qtd", render: (r) => <NumberInput value={r.qty} onChange={(n) => updateBom(r.id, { qty: n })} step={0.1} /> },
+                           { header: "Custo unitário", render: (r) => <NumberInput value={r.unitCost} onChange={(n) => updateBom(r.id, { unitCost: n })} step={1} /> },
+                           { header: "Moeda", render: (r) => (<select className="border rounded px-2 py-1" value={r.currency} onChange={(e) => updateBom(r.id, { currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>) },
+                           { header: "Fornecedor", render: (r) => (<select className="border rounded px-2 py-1" value={r.supplierId} onChange={(e) => updateBom(r.id, { supplierId: e.target.value })}>{state.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>) },
+                           { header: "Ação", render: (r) => <button className="text-red-600" onClick={() => removeBom(r.id)}>Remover</button> }]} rows={items} rowKey={(r) => r.id} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function CentrosCustos({ state, setState }) {
+      function update(ccId, patch) { setState((st) => ({ ...st, costCenters: st.costCenters.map((c) => (c.id === ccId ? { ...c, ...patch } : c)) })); }
+      function add() { setState((st) => ({ ...st, costCenters: [...st.costCenters, { id: uid(), name: "Centro", monthlyCost: 50000 }] })); }
+      function remove(ccId) { setState((st) => ({ ...st, costCenters: st.costCenters.filter((c) => c.id !== ccId) })); }
+      return (
+        <div className="bg-white rounded-2xl shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Centros de custo</h3>
+            <button className="text-sm px-3 py-1 border rounded" onClick={add}>Adicionar</button>
+          </div>
+          <SimpleTable cols={[{ header: "Nome", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.name} onChange={(e) => update(r.id, { name: e.target.value })} /> },
+                                 { header: "Custo mensal", render: (r) => <NumberInput value={r.monthlyCost} onChange={(n) => update(r.id, { monthlyCost: n })} step={1000} /> },
+                                 { header: "Ação", render: (r) => <button onClick={() => remove(r.id)}>Remover</button> }]} rows={state.costCenters} rowKey={(r) => r.id} />
+        </div>
+      );
+    }
+
+    function Fornecedores({ state, setState }) {
+      function update(id, patch) { setState((st) => ({ ...st, suppliers: st.suppliers.map((s) => (s.id === id ? { ...s, ...patch } : s)) })); }
+      function add() { setState((st) => ({ ...st, suppliers: [...st.suppliers, { id: uid(), name: "Fornecedor", country: "BR" }] })); }
+      function remove(id) { setState((st) => ({ ...st, suppliers: st.suppliers.filter((s) => s.id !== id) })); }
+      return (
+        <div className="bg-white rounded-2xl shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Fornecedores</h3>
+            <button className="text-sm px-3 py-1 border rounded" onClick={add}>Adicionar</button>
+          </div>
+          <SimpleTable cols={[{ header: "Nome", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.name} onChange={(e) => update(r.id, { name: e.target.value })} /> },
+                                 { header: "País", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.country} onChange={(e) => update(r.id, { country: e.target.value })} /> },
+                                 { header: "Ação", render: (r) => <button onClick={() => remove(r.id)}>Remover</button> }]} rows={state.suppliers} rowKey={(r) => r.id} />
+        </div>
+      );
+    }
+
+    function RelatorioCustos({ state }) {
+      const { prodTotals } = useCalculations(state);
+      const rows = prodTotals.map((r) => ({ produto: r.product.name, sku: r.product.sku, canal: r.product.channel, preco: r.product.price, unidades: r.units, material_unitario: r.materialUnit, mao_de_obra_unitario: r.laborUnit, frete_unitario: r.freightUnit, custo_fixo_unitario: r.fixedPerUnit, custo_total_unitario: r.fullUnitCost, margem_contribuicao_unitaria: r.contributionUnit, margem_contribuicao_pct: r.contributionMarginPct, impostos: r.salesTaxes, receita: r.revenue, resultado_operacional: r.operatingResult, ponto_de_equilibrio_unid: r.breakEvenUnits }));
+      function exportar() { const cols = Object.keys(rows[0] || {}); const csv = toCSV(rows, cols); download("relatorio_custos.csv", csv); }
+      return (
+        <div className="bg-white rounded-2xl shadow p-6">
+          <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">Relatório de custos e margens por produto</h3><button className="text-sm px-3 py-1 border rounded" onClick={exportar}>Exportar CSV</button></div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-gray-100">
+                  {['Produto','SKU','Canal','Preço','Unidades','Materiais','Mão de obra','Frete','Fixo unit.','Custo unit.','MC unit.','MC %','Impostos','Receita','Resultado','PE unid'].map((h) => <th key={h} className="text-left px-3 py-2 font-medium">{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {prodTotals.map((r) => (
+                  <tr key={r.product.id} className="border-b">
+                    <td className="px-3 py-2">{r.product.name}</td>
+                    <td className="px-3 py-2">{r.product.sku}</td>
+                    <td className="px-3 py-2">{r.product.channel}</td>
+                    <td className="px-3 py-2">{fmt(r.product.price)}</td>
+                    <td className="px-3 py-2">{r.units.toLocaleString('pt-BR')}</td>
+                    <td className="px-3 py-2">{fmt(r.materialUnit)}</td>
+                    <td className="px-3 py-2">{fmt(r.laborUnit)}</td>
+                    <td className="px-3 py-2">{fmt(r.freightUnit)}</td>
+                    <td className="px-3 py-2">{fmt(r.fixedPerUnit)}</td>
+                    <td className="px-3 py-2">{fmt(r.fullUnitCost)}</td>
+                    <td className="px-3 py-2">{fmt(r.contributionUnit)}</td>
+                    <td className="px-3 py-2">{pct(r.contributionMarginPct)}</td>
+                    <td className="px-3 py-2">{fmt(r.salesTaxes)}</td>
+                    <td className="px-3 py-2">{fmt(r.revenue)}</td>
+                    <td className={`px-3 py-2 ${r.operatingResult >= 0 ? 'text-green-700' : 'text-red-700'}`}>{fmt(r.operatingResult)}</td>
+                    <td className="px-3 py-2">{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function KPIs({ state }) {
+      const { kpis, prodTotals } = useCalculations(state);
+      const top = [...prodTotals].sort((a, b) => b.contributionTotal - a.contributionTotal).slice(0, 3);
+      return (
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Receita mensal</div><div className="text-2xl font-semibold">{fmt(kpis.totalRevenue)}</div></div>
+          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Impostos s vendas</div><div className="text-2xl font-semibold">{fmt(kpis.totalSalesTaxes)}</div></div>
+          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Custos variáveis</div><div className="text-2xl font-semibold">{fmt(kpis.totalVariable)}</div></div>
+          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Custos fixos</div><div className="text-2xl font-semibold">{fmt(kpis.monthlyFixedOverhead)}</div></div>
+          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Margem de contribuição</div><div className="text-2xl font-semibold">{fmt(kpis.totalContribution)}</div></div>
+          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Resultado operacional</div><div className="text-2xl font-semibold">{fmt(kpis.operatingIncome)}</div></div>
+          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Custo médio por unidade</div><div className="text-2xl font-semibold">{fmt(kpis.avgCostPerUnit)}</div></div>
+          <div className="bg-white rounded-2xl shadow p-6 md:col-span-2"><div className="text-sm text-gray-500 mb-1">Produtos com maior efeito na margem</div><div>{top.map((r) => (<div key={r.product.id} className="text-sm">{r.product.name} — {fmt(r.contributionTotal)}</div>))}</div></div>
+        </div>
+      );
+    }
+
+    function Cenarios({ state, setState }) {
+      const { prodTotals } = useCalculations(state);
+      return (
+        <div className="bg-white rounded-2xl shadow p-6">
+          <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">Simulação de cenários</h3><button className="text-sm px-3 py-1 border rounded" onClick={() => setState((st) => ({ ...st, fxUSD: 5.20, scenarioTaxAdder: 0 }))}>Padronizar</button></div>
+          <div className="grid md:grid-cols-4 gap-4 mb-4">
+            <div className="grid gap-1"><label className="text-sm">Câmbio USD BRL</label><NumberInput value={state.fxUSD} onChange={(n) => setState((st) => ({ ...st, fxUSD: n }))} step={0.05} /></div>
+            <div className="grid gap-1"><label className="text-sm">Ajuste tributário +%</label><NumberInput value={state.scenarioTaxAdder} onChange={(n) => setState((st) => ({ ...st, scenarioTaxAdder: n }))} step={0.01} /></div>
+            <div className="md:col-span-2 flex items-end text-sm text-gray-500">Custos em USD reagem ao câmbio e o ajuste altera a alíquota de vendas</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left">Produto</th><th className="px-3 py-2 text-left">Custo unitário</th><th className="px-3 py-2 text-left">Margem contrib unid</th><th className="px-3 py-2 text-left">PE unidades</th></tr></thead>
+              <tbody>
+                {prodTotals.map((r) => (
+                  <tr key={r.product.id} className="border-b">
+                    <td className="px-3 py-2">{r.product.name}</td>
+                    <td className="px-3 py-2">{fmt(r.fullUnitCost)}</td>
+                    <td className="px-3 py-2">{fmt(r.contributionUnit)} ({pct(r.contributionMarginPct)})</td>
+                    <td className="px-3 py-2">{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function Tabs({ active, setActive }) {
+      const tabs = [
+        { id: 'cadastro', label: 'Cadastro e fichas' },
+        { id: 'centros', label: 'Centros de custo' },
+        { id: 'fornecedores', label: 'Fornecedores' },
+        { id: 'relatorios', label: 'Relatórios' },
+        { id: 'kpis', label: 'KPIs' },
+        { id: 'cenarios', label: 'Cenários' },
+      ];
+      return (
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((t) => (
+            <button key={t.id} className={`px-3 py-1 rounded border ${active === t.id ? 'bg-gray-900 text-white' : 'bg-white'}`} onClick={() => setActive(t.id)}>{t.label}</button>
+          ))}
+        </div>
+      );
+    }
+
+    function App() {
+      const { state, setState, resetSeed, addProduct } = useERPState();
+      const { kpis } = useCalculations(state);
+      const [tab, setTab] = useState('cadastro');
+      return (
+        <div className="max-w-7xl mx-auto p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold">Simulador ERP — Empresa ALFA</h1>
+              <p className="text-sm text-gray-500">Custos fichas técnicas margens KPIs e ponto de equilíbrio</p>
+            </div>
+            <div className="flex gap-2">
+              <button className="px-3 py-2 border rounded" onClick={resetSeed}>Recarregar dados</button>
+              <button className="px-3 py-2 border rounded bg-black text-white" onClick={addProduct}>Novo produto</button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow p-6 grid md:grid-cols-4 gap-4">
+            <div><div className="text-sm text-gray-500">Receita</div><div className="text-2xl font-semibold">{fmt(kpis.totalRevenue)}</div></div>
+            <div><div className="text-sm text-gray-500">Margem de contribuição</div><div className="text-2xl font-semibold">{fmt(kpis.totalContribution)}</div></div>
+            <div><div className="text-sm text-gray-500">Resultado operacional</div><div className="text-2xl font-semibold">{fmt(kpis.operatingIncome)}</div></div>
+            <div><div className="text-sm text-gray-500">Custo médio unitário</div><div className="text-2xl font-semibold">{fmt(kpis.avgCostPerUnit)}</div></div>
+          </div>
+
+          <Tabs active={tab} setActive={setTab} />
+
+          {tab === 'cadastro' && <CadastroProdutos state={state} setState={setState} />}
+          {tab === 'centros' && <CentrosCustos state={state} setState={setState} />}
+          {tab === 'fornecedores' && <Fornecedores state={state} setState={setState} />}
+          {tab === 'relatorios' && <RelatorioCustos state={state} />}
+          {tab === 'kpis' && <KPIs state={state} />}
+          {tab === 'cenarios' && <Cenarios state={state} setState={setState} />}
+
+          <div className="bg-white rounded-2xl shadow p-6 text-sm text-gray-600">
+            Cadastre produtos componentes mão de obra e plano de produção altere câmbio e alíquotas observe o efeito no custo unitário margem de contribuição resultado e ponto de equilíbrio exporte o relatório e use para discutir preço mix e volume os cálculos usam custeio por absorção para custo total com rateio proporcional ao volume e custeio variável para a margem de contribuição
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
