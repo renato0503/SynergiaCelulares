@@ -1,25 +1,87 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="h-full">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Simulador ERP — Empresa ALFA</title>
+
+  <script>
+    tailwind = { config: {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              25:  '#faf7ff',
+              50:  '#f5f1ff',
+              100: '#ebe4ff',
+              200: '#d9c9ff',
+              300: '#c2a6ff',
+              400: '#a77cff',
+              500: '#8b5cf6', /* violet-500 base */
+              600: '#7c3aed', /* violet-600 */
+              700: '#6d28d9', /* violet-700 */
+              800: '#4c1d95', /* violet-900-ish */
+              900: '#2e1065'
+            }
+          },
+          boxShadow: {
+            card: '0 8px 20px rgba(0,0,0,0.08)'
+          }
+        }
+      }
+    }};
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script crossorigin defer src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin defer src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script defer src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <meta name="color-scheme" content="dark light">
 </head>
-<body class="bg-gray-50 text-gray-900">
-  <div id="root"></div>
+<body class="h-full bg-black text-white selection:bg-brand-600 selection:text-white">
+  <a href="#conteudo" class="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:top-4 focus:left-4 focus:bg-black focus:text-white focus:outline-none focus:ring-2 focus:ring-white px-3 py-2 rounded-lg">Ir para o conteúdo</a>
+
+  <!-- App Shell com cabeçalho fixo e área segura -->
+  <header class="fixed inset-x-0 top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-black/50 bg-black/70 border-b border-white/10"
+          style="padding-top: env(safe-area-inset-top)">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="h-16 flex items-center justify-between">
+        <div class="min-w-0">
+          <h1 class="text-base sm:text-lg font-semibold tracking-tight">
+            <span class="bg-gradient-to-r from-brand-400 via-brand-600 to-white bg-clip-text text-transparent">Simulador ERP — Empresa ALFA</span>
+          </h1>
+          <p class="text-xs sm:text-sm text-white/70">Custos fichas técnicas margens KPIs e ponto de equilíbrio</p>
+        </div>
+        <div class="hidden sm:flex gap-2">
+          <button id="btn-reset-desktop" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white text-white"
+                  aria-label="Recarregar dados">Recarregar</button>
+          <button id="btn-novo-desktop" class="px-3 py-2 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-500 hover:to-brand-700 active:from-brand-600 active:to-brand-900 text-white shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  aria-label="Novo produto">Novo produto</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Barra de ações fixa no mobile -->
+  <div class="fixed inset-x-0 bottom-0 z-40 bg-black/80 backdrop-blur border-t border-white/10 sm:hidden"
+       style="padding-bottom: calc(env(safe-area-inset-bottom) + 0px)">
+    <div class="max-w-7xl mx-auto px-4 py-3 grid grid-cols-2 gap-3">
+      <button id="btn-reset-mobile" class="w-full h-12 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-white">Recarregar</button>
+      <button id="btn-novo-mobile" class="w-full h-12 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white text-sm font-medium shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-white">Novo produto</button>
+    </div>
+  </div>
+
+  <main id="conteudo" class="pt-20 pb-24 sm:pb-10">
+    <div id="root" class="max-w-7xl mx-auto px-4 sm:px-6"></div>
+  </main>
 
   <script type="text/babel">
     const { useMemo, useState } = React;
 
-    function uid() {
-      return Math.random().toString(36).slice(2, 10);
-    }
+    function uid() { return Math.random().toString(36).slice(2, 10); }
 
-    const CURRENCIES = ["BRL", "USD"]; // simples
+    const CURRENCIES = ["BRL", "USD"];
 
     function seed() {
       const sp1 = { id: uid(), name: "FoxParts", country: "CN" };
@@ -127,18 +189,79 @@
       return { prodTotals, kpis };
     }
 
-    function NumberInput({ value, onChange, step = 1, min = 0 }) {
+    function Field({ label, htmlFor, children, help }) {
       return (
-        <input type="number" className="w-full border rounded px-2 py-1" value={Number.isFinite(value) ? value : 0} step={step} min={min} onChange={(e) => onChange(parseFloat(e.target.value || "0"))} />
+        <div className="grid gap-1">
+          <label htmlFor={htmlFor} className="text-sm text-white/80">{label}</label>
+          {children}
+          {help ? <p className="text-xs text-white/60">{help}</p> : null}
+        </div>
+      );
+    }
+
+    function NumberInput({ value, onChange, step = 1, min = 0, id }) {
+      return (
+        <input
+          id={id}
+          type="number"
+          className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-white placeholder-white/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          value={Number.isFinite(value) ? value : 0}
+          step={step}
+          min={min}
+          onChange={(e) => onChange(parseFloat(e.target.value || "0"))}
+          inputMode="decimal"
+        />
+      );
+    }
+
+    function Input({ value, onChange, id, placeholder }) {
+      return (
+        <input
+          id={id}
+          className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-white placeholder-white/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+    }
+
+    function Select({ value, onChange, id, children }) {
+      return (
+        <select
+          id={id}
+          className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {children}
+        </select>
+      );
+    }
+
+    function Card({ children, className = "" }) {
+      return (
+        <div className={`rounded-2xl bg-gradient-to-b from-brand-900/40 to-black border border-white/10 shadow-card ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function SectionHeader({ title, action }) {
+      return (
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white">{title}</h3>
+          {action}
+        </div>
       );
     }
 
     function SimpleTable({ cols, rows, rowKey }) {
       return (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-xl ring-1 ring-white/10">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-gray-100">
+              <tr className="bg-white/5 text-white/80">
                 {cols.map((c, i) => (
                   <th key={i} className="text-left px-3 py-2 font-medium">{c.header}</th>
                 ))}
@@ -146,7 +269,7 @@
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={rowKey(r, i)} className="border-b">
+                <tr key={rowKey(r, i)} className="border-t border-white/10">
                   {cols.map((c, j) => (
                     <td key={j} className="px-3 py-2 align-top">{c.render(r, i)}</td>
                   ))}
@@ -188,40 +311,61 @@
             const units = state.plan.find((pl) => pl.productId === p.id)?.unitsPerMonth || 0;
             const items = state.bom.filter((b) => b.productId === p.id);
             return (
-              <div key={p.id} className="bg-white rounded-2xl shadow p-6">
+              <Card key={p.id} className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">{p.name} — {p.sku}</h3>
-                  <button className="text-sm px-3 py-1 border rounded" onClick={() => addBom(p.id)}>Adicionar componente</button>
+                  <h4 className="text-base font-semibold">{p.name} — {p.sku}</h4>
+                  <button className="text-sm px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                          onClick={() => addBom(p.id)}>Adicionar componente</button>
                 </div>
+
                 <div className="grid md:grid-cols-4 gap-4">
-                  <div className="grid gap-1"><label className="text-sm">Nome</label><input className="border rounded px-2 py-1" value={p.name} onChange={(e) => update(p.id, { name: e.target.value })} /></div>
-                  <div className="grid gap-1"><label className="text-sm">SKU</label><input className="border rounded px-2 py-1" value={p.sku} onChange={(e) => update(p.id, { sku: e.target.value })} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Canal</label>
-                    <select className="border rounded px-2 py-1" value={p.channel} onChange={(e) => update(p.id, { channel: e.target.value })}>
+                  <Field label="Nome"><Input value={p.name} onChange={(v) => update(p.id, { name: v })} /></Field>
+                  <Field label="SKU"><Input value={p.sku} onChange={(v) => update(p.id, { sku: v })} /></Field>
+                  <Field label="Canal">
+                    <Select value={p.channel} onChange={(v) => update(p.id, { channel: v })}>
                       <option>Varejo</option><option>Online</option><option>Distribuidor</option>
-                    </select>
-                  </div>
-                  <div className="grid gap-1"><label className="text-sm">Preço BRL</label><NumberInput value={p.price} onChange={(n) => update(p.id, { price: n })} step={10} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Lead time dias</label><NumberInput value={p.leadTimeDays} onChange={(n) => update(p.id, { leadTimeDays: n })} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Retrabalho %</label><NumberInput value={p.reworkRate} onChange={(n) => update(p.id, { reworkRate: n })} step={0.005} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Devolução %</label><NumberInput value={p.returnRate} onChange={(n) => update(p.id, { returnRate: n })} step={0.005} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Plano unidades mês</label><NumberInput value={units} onChange={(n) => updatePlan(p.id, n)} step={50} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Mão de obra min/unid</label><NumberInput value={labor?.minutes || 0} onChange={(n) => updateLabor(p.id, { minutes: n })} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Custo hora BRL</label><NumberInput value={labor?.hourlyRate || 0} onChange={(n) => updateLabor(p.id, { hourlyRate: n })} step={1} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Frete por unidade BRL</label><NumberInput value={tax?.freightPerUnit || 0} onChange={(n) => updateTax(p.id, { freightPerUnit: n })} step={1} /></div>
-                  <div className="grid gap-1"><label className="text-sm">Alíquota sobre vendas %</label><NumberInput value={tax?.salesTaxRate || 0} onChange={(n) => updateTax(p.id, { salesTaxRate: n })} step={0.01} /></div>
+                    </Select>
+                  </Field>
+                  <Field label="Preço BRL"><NumberInput value={p.price} onChange={(n) => update(p.id, { price: n })} step={10} /></Field>
+
+                  <Field label="Lead time dias"><NumberInput value={p.leadTimeDays} onChange={(n) => update(p.id, { leadTimeDays: n })} /></Field>
+                  <Field label="Retrabalho %"><NumberInput value={p.reworkRate} onChange={(n) => update(p.id, { reworkRate: n })} step={0.005} /></Field>
+                  <Field label="Devolução %"><NumberInput value={p.returnRate} onChange={(n) => update(p.id, { returnRate: n })} step={0.005} /></Field>
+                  <Field label="Plano unidades mês"><NumberInput value={units} onChange={(n) => updatePlan(p.id, n)} step={50} /></Field>
+
+                  <Field label="Mão de obra min/unid"><NumberInput value={labor?.minutes || 0} onChange={(n) => updateLabor(p.id, { minutes: n })} /></Field>
+                  <Field label="Custo hora BRL"><NumberInput value={labor?.hourlyRate || 0} onChange={(n) => updateLabor(p.id, { hourlyRate: n })} step={1} /></Field>
+                  <Field label="Frete por unidade BRL"><NumberInput value={tax?.freightPerUnit || 0} onChange={(n) => updateTax(p.id, { freightPerUnit: n })} step={1} /></Field>
+                  <Field label="Alíquota sobre vendas %"><NumberInput value={tax?.salesTaxRate || 0} onChange={(n) => updateTax(p.id, { salesTaxRate: n })} step={0.01} /></Field>
                 </div>
-                <div className="mt-4">
-                  <div className="text-sm font-medium mb-2">Ficha técnica</div>
+
+                <div className="mt-6">
+                  <div className="text-sm font-medium text-white/90 mb-2">Ficha técnica</div>
                   <SimpleTable
-                    cols={[{ header: "Componente", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.component} onChange={(e) => updateBom(r.id, { component: e.target.value })} /> },
-                           { header: "Qtd", render: (r) => <NumberInput value={r.qty} onChange={(n) => updateBom(r.id, { qty: n })} step={0.1} /> },
-                           { header: "Custo unitário", render: (r) => <NumberInput value={r.unitCost} onChange={(n) => updateBom(r.id, { unitCost: n })} step={1} /> },
-                           { header: "Moeda", render: (r) => (<select className="border rounded px-2 py-1" value={r.currency} onChange={(e) => updateBom(r.id, { currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>) },
-                           { header: "Fornecedor", render: (r) => (<select className="border rounded px-2 py-1" value={r.supplierId} onChange={(e) => updateBom(r.id, { supplierId: e.target.value })}>{state.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>) },
-                           { header: "Ação", render: (r) => <button className="text-red-600" onClick={() => removeBom(r.id)}>Remover</button> }]} rows={items} rowKey={(r) => r.id} />
+                    cols={[
+                      { header: "Componente", render: (r) => <Input value={r.component} onChange={(v) => updateBom(r.id, { component: v })} /> },
+                      { header: "Qtd", render: (r) => <NumberInput value={r.qty} onChange={(n) => updateBom(r.id, { qty: n })} step={0.1} /> },
+                      { header: "Custo unitário", render: (r) => <NumberInput value={r.unitCost} onChange={(n) => updateBom(r.id, { unitCost: n })} step={1} /> },
+                      { header: "Moeda", render: (r) => (
+                        <Select value={r.currency} onChange={(v) => updateBom(r.id, { currency: v })}>
+                          {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </Select>
+                      )},
+                      { header: "Fornecedor", render: (r) => (
+                        <Select value={r.supplierId} onChange={(v) => updateBom(r.id, { supplierId: v })}>
+                          {state.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </Select>
+                      )},
+                      { header: "Ação", render: (r) => (
+                        <button className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/15 text-rose-300 hover:text-rose-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                onClick={() => removeBom(r.id)} aria-label={`Remover ${r.component}`}>Remover</button>
+                      )}
+                    ]}
+                    rows={items}
+                    rowKey={(r) => r.id}
+                  />
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -233,15 +377,21 @@
       function add() { setState((st) => ({ ...st, costCenters: [...st.costCenters, { id: uid(), name: "Centro", monthlyCost: 50000 }] })); }
       function remove(ccId) { setState((st) => ({ ...st, costCenters: st.costCenters.filter((c) => c.id !== ccId) })); }
       return (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Centros de custo</h3>
-            <button className="text-sm px-3 py-1 border rounded" onClick={add}>Adicionar</button>
-          </div>
-          <SimpleTable cols={[{ header: "Nome", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.name} onChange={(e) => update(r.id, { name: e.target.value })} /> },
-                                 { header: "Custo mensal", render: (r) => <NumberInput value={r.monthlyCost} onChange={(n) => update(r.id, { monthlyCost: n })} step={1000} /> },
-                                 { header: "Ação", render: (r) => <button onClick={() => remove(r.id)}>Remover</button> }]} rows={state.costCenters} rowKey={(r) => r.id} />
-        </div>
+        <Card className="p-6">
+          <SectionHeader
+            title="Centros de custo"
+            action={<button className="text-sm px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={add}>Adicionar</button>}
+          />
+          <SimpleTable
+            cols={[
+              { header: "Nome", render: (r) => <Input value={r.name} onChange={(v) => update(r.id, { name: v })} /> },
+              { header: "Custo mensal", render: (r) => <NumberInput value={r.monthlyCost} onChange={(n) => update(r.id, { monthlyCost: n })} step={1000} /> },
+              { header: "Ação", render: (r) => <button className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={() => remove(r.id)}>Remover</button> }
+            ]}
+            rows={state.costCenters}
+            rowKey={(r) => r.id}
+          />
+        </Card>
       );
     }
 
@@ -250,73 +400,131 @@
       function add() { setState((st) => ({ ...st, suppliers: [...st.suppliers, { id: uid(), name: "Fornecedor", country: "BR" }] })); }
       function remove(id) { setState((st) => ({ ...st, suppliers: st.suppliers.filter((s) => s.id !== id) })); }
       return (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Fornecedores</h3>
-            <button className="text-sm px-3 py-1 border rounded" onClick={add}>Adicionar</button>
-          </div>
-          <SimpleTable cols={[{ header: "Nome", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.name} onChange={(e) => update(r.id, { name: e.target.value })} /> },
-                                 { header: "País", render: (r) => <input className="border rounded px-2 py-1 w-full" value={r.country} onChange={(e) => update(r.id, { country: e.target.value })} /> },
-                                 { header: "Ação", render: (r) => <button onClick={() => remove(r.id)}>Remover</button> }]} rows={state.suppliers} rowKey={(r) => r.id} />
-        </div>
+        <Card className="p-6">
+          <SectionHeader
+            title="Fornecedores"
+            action={<button className="text-sm px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={add}>Adicionar</button>}
+          />
+          <SimpleTable
+            cols={[
+              { header: "Nome", render: (r) => <Input value={r.name} onChange={(v) => update(r.id, { name: v })} /> },
+              { header: "País", render: (r) => <Input value={r.country} onChange={(v) => update(r.id, { country: v })} /> },
+              { header: "Ação", render: (r) => <button className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={() => remove(r.id)}>Remover</button> }
+            ]}
+            rows={state.suppliers}
+            rowKey={(r) => r.id}
+          />
+        </Card>
       );
     }
 
     function RelatorioCustos({ state }) {
       const { prodTotals } = useCalculations(state);
-      const rows = prodTotals.map((r) => ({ produto: r.product.name, sku: r.product.sku, canal: r.product.channel, preco: r.product.price, unidades: r.units, material_unitario: r.materialUnit, mao_de_obra_unitario: r.laborUnit, frete_unitario: r.freightUnit, custo_fixo_unitario: r.fixedPerUnit, custo_total_unitario: r.fullUnitCost, margem_contribuicao_unitaria: r.contributionUnit, margem_contribuicao_pct: r.contributionMarginPct, impostos: r.salesTaxes, receita: r.revenue, resultado_operacional: r.operatingResult, ponto_de_equilibrio_unid: r.breakEvenUnits }));
+      const rows = prodTotals.map((r) => ({
+        produto: r.product.name, sku: r.product.sku, canal: r.product.channel, preco: r.product.price, unidades: r.units,
+        material_unitario: r.materialUnit, mao_de_obra_unitario: r.laborUnit, frete_unitario: r.freightUnit, custo_fixo_unitario: r.fixedPerUnit,
+        custo_total_unitario: r.fullUnitCost, margem_contribuicao_unitaria: r.contributionUnit, margem_contribuicao_pct: r.contributionMarginPct,
+        impostos: r.salesTaxes, receita: r.revenue, resultado_operacional: r.operatingResult, ponto_de_equilibrio_unid: r.breakEvenUnits
+      }));
       function exportar() { const cols = Object.keys(rows[0] || {}); const csv = toCSV(rows, cols); download("relatorio_custos.csv", csv); }
+
       return (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">Relatório de custos e margens por produto</h3><button className="text-sm px-3 py-1 border rounded" onClick={exportar}>Exportar CSV</button></div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="bg-gray-100">
-                  {['Produto','SKU','Canal','Preço','Unidades','Materiais','Mão de obra','Frete','Fixo unit.','Custo unit.','MC unit.','MC %','Impostos','Receita','Resultado','PE unid'].map((h) => <th key={h} className="text-left px-3 py-2 font-medium">{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {prodTotals.map((r) => (
-                  <tr key={r.product.id} className="border-b">
-                    <td className="px-3 py-2">{r.product.name}</td>
-                    <td className="px-3 py-2">{r.product.sku}</td>
-                    <td className="px-3 py-2">{r.product.channel}</td>
-                    <td className="px-3 py-2">{fmt(r.product.price)}</td>
-                    <td className="px-3 py-2">{r.units.toLocaleString('pt-BR')}</td>
-                    <td className="px-3 py-2">{fmt(r.materialUnit)}</td>
-                    <td className="px-3 py-2">{fmt(r.laborUnit)}</td>
-                    <td className="px-3 py-2">{fmt(r.freightUnit)}</td>
-                    <td className="px-3 py-2">{fmt(r.fixedPerUnit)}</td>
-                    <td className="px-3 py-2">{fmt(r.fullUnitCost)}</td>
-                    <td className="px-3 py-2">{fmt(r.contributionUnit)}</td>
-                    <td className="px-3 py-2">{pct(r.contributionMarginPct)}</td>
-                    <td className="px-3 py-2">{fmt(r.salesTaxes)}</td>
-                    <td className="px-3 py-2">{fmt(r.revenue)}</td>
-                    <td className={`px-3 py-2 ${r.operatingResult >= 0 ? 'text-green-700' : 'text-red-700'}`}>{fmt(r.operatingResult)}</td>
-                    <td className="px-3 py-2">{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</td>
+        <Card className="p-6">
+          <SectionHeader
+            title="Relatório de custos e margens por produto"
+            action={<button className="text-sm px-3 py-2 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={exportar}>Exportar CSV</button>}
+          />
+
+          {/* Tabela para telas médias e maiores */}
+          <div className="hidden md:block">
+            <div className="overflow-x-auto rounded-xl ring-1 ring-white/10">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="bg-white/5 text-white/80">
+                    {['Produto','SKU','Canal','Preço','Unidades','Materiais','Mão de obra','Frete','Fixo unit.','Custo unit.','MC unit.','MC %','Impostos','Receita','Resultado','PE unid'].map((h) => <th key={h} className="text-left px-3 py-2 font-medium">{h}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {prodTotals.map((r) => (
+                    <tr key={r.product.id} className="border-t border-white/10">
+                      <td className="px-3 py-2">{r.product.name}</td>
+                      <td className="px-3 py-2">{r.product.sku}</td>
+                      <td className="px-3 py-2">{r.product.channel}</td>
+                      <td className="px-3 py-2">{fmt(r.product.price)}</td>
+                      <td className="px-3 py-2">{r.units.toLocaleString('pt-BR')}</td>
+                      <td className="px-3 py-2">{fmt(r.materialUnit)}</td>
+                      <td className="px-3 py-2">{fmt(r.laborUnit)}</td>
+                      <td className="px-3 py-2">{fmt(r.freightUnit)}</td>
+                      <td className="px-3 py-2">{fmt(r.fixedPerUnit)}</td>
+                      <td className="px-3 py-2">{fmt(r.fullUnitCost)}</td>
+                      <td className="px-3 py-2">{fmt(r.contributionUnit)}</td>
+                      <td className="px-3 py-2">{pct(r.contributionMarginPct)}</td>
+                      <td className="px-3 py-2">{fmt(r.salesTaxes)}</td>
+                      <td className="px-3 py-2">{fmt(r.revenue)}</td>
+                      <td className={`px-3 py-2 ${r.operatingResult >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{fmt(r.operatingResult)}</td>
+                      <td className="px-3 py-2">{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Cartões empilhados no mobile */}
+          <div className="md:hidden grid gap-3">
+            {prodTotals.map((r) => (
+              <div key={r.product.id} className="rounded-xl bg-white/5 border border-white/10 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-medium">{r.product.name}</div>
+                  <div className="text-xs text-white/60">{r.product.sku}</div>
+                </div>
+                <dl className="grid grid-cols-2 gap-2 text-sm">
+                  <div><dt className="text-white/60">Canal</dt><dd>{r.product.channel}</dd></div>
+                  <div><dt className="text-white/60">Preço</dt><dd>{fmt(r.product.price)}</dd></div>
+                  <div><dt className="text-white/60">Unidades</dt><dd>{r.units.toLocaleString('pt-BR')}</dd></div>
+                  <div><dt className="text-white/60">Materiais</dt><dd>{fmt(r.materialUnit)}</dd></div>
+                  <div><dt className="text-white/60">Mão de obra</dt><dd>{fmt(r.laborUnit)}</dd></div>
+                  <div><dt className="text-white/60">Frete</dt><dd>{fmt(r.freightUnit)}</dd></div>
+                  <div><dt className="text-white/60">Fixo unit.</dt><dd>{fmt(r.fixedPerUnit)}</dd></div>
+                  <div><dt className="text-white/60">Custo unit.</dt><dd>{fmt(r.fullUnitCost)}</dd></div>
+                  <div><dt className="text-white/60">MC unit.</dt><dd>{fmt(r.contributionUnit)}</dd></div>
+                  <div><dt className="text-white/60">MC %</dt><dd>{pct(r.contributionMarginPct)}</dd></div>
+                  <div><dt className="text-white/60">Impostos</dt><dd>{fmt(r.salesTaxes)}</dd></div>
+                  <div><dt className="text-white/60">Receita</dt><dd>{fmt(r.revenue)}</dd></div>
+                  <div className="col-span-2"><dt className="text-white/60">Resultado</dt><dd className={`${r.operatingResult >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{fmt(r.operatingResult)}</dd></div>
+                  <div className="col-span-2"><dt className="text-white/60">PE unid</dt><dd>{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</dd></div>
+                </dl>
+              </div>
+            ))}
+          </div>
+        </Card>
       );
     }
 
     function KPIs({ state }) {
       const { kpis, prodTotals } = useCalculations(state);
       const top = [...prodTotals].sort((a, b) => b.contributionTotal - a.contributionTotal).slice(0, 3);
+      const KPI = ({ label, value }) => (
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
+          <div className="text-sm text-white/70">{label}</div>
+          <div className="text-2xl font-semibold mt-1">{value}</div>
+        </div>
+      );
       return (
         <div className="grid md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Receita mensal</div><div className="text-2xl font-semibold">{fmt(kpis.totalRevenue)}</div></div>
-          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Impostos s vendas</div><div className="text-2xl font-semibold">{fmt(kpis.totalSalesTaxes)}</div></div>
-          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Custos variáveis</div><div className="text-2xl font-semibold">{fmt(kpis.totalVariable)}</div></div>
-          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Custos fixos</div><div className="text-2xl font-semibold">{fmt(kpis.monthlyFixedOverhead)}</div></div>
-          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Margem de contribuição</div><div className="text-2xl font-semibold">{fmt(kpis.totalContribution)}</div></div>
-          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Resultado operacional</div><div className="text-2xl font-semibold">{fmt(kpis.operatingIncome)}</div></div>
-          <div className="bg-white rounded-2xl shadow p-6"><div className="text-sm text-gray-500">Custo médio por unidade</div><div className="text-2xl font-semibold">{fmt(kpis.avgCostPerUnit)}</div></div>
-          <div className="bg-white rounded-2xl shadow p-6 md:col-span-2"><div className="text-sm text-gray-500 mb-1">Produtos com maior efeito na margem</div><div>{top.map((r) => (<div key={r.product.id} className="text-sm">{r.product.name} — {fmt(r.contributionTotal)}</div>))}</div></div>
+          <KPI label="Receita mensal" value={fmt(kpis.totalRevenue)} />
+          <KPI label="Impostos s vendas" value={fmt(kpis.totalSalesTaxes)} />
+          <KPI label="Custos variáveis" value={fmt(kpis.totalVariable)} />
+          <KPI label="Custos fixos" value={fmt(kpis.monthlyFixedOverhead)} />
+          <KPI label="Margem de contribuição" value={fmt(kpis.totalContribution)} />
+          <KPI label="Resultado operacional" value={fmt(kpis.operatingIncome)} />
+          <KPI label="Custo médio por unidade" value={fmt(kpis.avgCostPerUnit)} />
+          <div className="rounded-2xl bg-white/5 border border-white/10 p-6 md:col-span-2">
+            <div className="text-sm text-white/70 mb-1">Produtos com maior efeito na margem</div>
+            <div className="space-y-1">
+              {top.map((r) => (<div key={r.product.id} className="text-sm">{r.product.name} — {fmt(r.contributionTotal)}</div>))}
+            </div>
+          </div>
         </div>
       );
     }
@@ -324,29 +532,53 @@
     function Cenarios({ state, setState }) {
       const { prodTotals } = useCalculations(state);
       return (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">Simulação de cenários</h3><button className="text-sm px-3 py-1 border rounded" onClick={() => setState((st) => ({ ...st, fxUSD: 5.20, scenarioTaxAdder: 0 }))}>Padronizar</button></div>
+        <Card className="p-6">
+          <SectionHeader
+            title="Simulação de cenários"
+            action={
+              <button className="text-sm px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      onClick={() => setState((st) => ({ ...st, fxUSD: 5.20, scenarioTaxAdder: 0 }))}>Padronizar</button>
+            }
+          />
           <div className="grid md:grid-cols-4 gap-4 mb-4">
-            <div className="grid gap-1"><label className="text-sm">Câmbio USD BRL</label><NumberInput value={state.fxUSD} onChange={(n) => setState((st) => ({ ...st, fxUSD: n }))} step={0.05} /></div>
-            <div className="grid gap-1"><label className="text-sm">Ajuste tributário +%</label><NumberInput value={state.scenarioTaxAdder} onChange={(n) => setState((st) => ({ ...st, scenarioTaxAdder: n }))} step={0.01} /></div>
-            <div className="md:col-span-2 flex items-end text-sm text-gray-500">Custos em USD reagem ao câmbio e o ajuste altera a alíquota de vendas</div>
+            <Field label="Câmbio USD BRL"><NumberInput value={state.fxUSD} onChange={(n) => setState((st) => ({ ...st, fxUSD: n }))} step={0.05} /></Field>
+            <Field label="Ajuste tributário +%"><NumberInput value={state.scenarioTaxAdder} onChange={(n) => setState((st) => ({ ...st, scenarioTaxAdder: n }))} step={0.01} /></Field>
+            <div className="md:col-span-2 flex items-end text-sm text-white/60">Custos em USD reagem ao câmbio e o ajuste altera a alíquota de vendas</div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left">Produto</th><th className="px-3 py-2 text-left">Custo unitário</th><th className="px-3 py-2 text-left">Margem contrib unid</th><th className="px-3 py-2 text-left">PE unidades</th></tr></thead>
-              <tbody>
-                {prodTotals.map((r) => (
-                  <tr key={r.product.id} className="border-b">
-                    <td className="px-3 py-2">{r.product.name}</td>
-                    <td className="px-3 py-2">{fmt(r.fullUnitCost)}</td>
-                    <td className="px-3 py-2">{fmt(r.contributionUnit)} ({pct(r.contributionMarginPct)})</td>
-                    <td className="px-3 py-2">{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Tabela desktop */}
+          <div className="hidden md:block">
+            <div className="overflow-x-auto rounded-xl ring-1 ring-white/10">
+              <table className="min-w-full text-sm">
+                <thead><tr className="bg-white/5 text-white/80"><th className="px-3 py-2 text-left">Produto</th><th className="px-3 py-2 text-left">Custo unitário</th><th className="px-3 py-2 text-left">Margem contrib unid</th><th className="px-3 py-2 text-left">PE unidades</th></tr></thead>
+                <tbody>
+                  {prodTotals.map((r) => (
+                    <tr key={r.product.id} className="border-t border-white/10">
+                      <td className="px-3 py-2">{r.product.name}</td>
+                      <td className="px-3 py-2">{fmt(r.fullUnitCost)}</td>
+                      <td className="px-3 py-2">{fmt(r.contributionUnit)} ({pct(r.contributionMarginPct)})</td>
+                      <td className="px-3 py-2">{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Cartões mobile */}
+          <div className="md:hidden grid gap-3">
+            {prodTotals.map((r) => (
+              <div key={r.product.id} className="rounded-xl bg-white/5 border border-white/10 p-4">
+                <div className="font-medium mb-1">{r.product.name}</div>
+                <dl className="grid grid-cols-2 gap-2 text-sm">
+                  <div><dt className="text-white/60">Custo unitário</dt><dd>{fmt(r.fullUnitCost)}</dd></div>
+                  <div><dt className="text-white/60">MC unid</dt><dd>{fmt(r.contributionUnit)} ({pct(r.contributionMarginPct)})</dd></div>
+                  <div className="col-span-2"><dt className="text-white/60">PE unidades</dt><dd>{Number.isFinite(r.breakEvenUnits) ? r.breakEvenUnits.toLocaleString('pt-BR') : '—'}</dd></div>
+                </dl>
+              </div>
+            ))}
+          </div>
+        </Card>
       );
     }
 
@@ -361,9 +593,21 @@
       ];
       return (
         <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => (
-            <button key={t.id} className={`px-3 py-1 rounded border ${active === t.id ? 'bg-gray-900 text-white' : 'bg-white'}`} onClick={() => setActive(t.id)}>{t.label}</button>
-          ))}
+          {tabs.map((t) => {
+            const activeClasses = active === t.id
+              ? 'bg-gradient-to-br from-brand-600 to-brand-800 text-white'
+              : 'bg-white/5 text-white hover:bg-white/10';
+            return (
+              <button
+                key={t.id}
+                className={`px-4 py-2 rounded-xl border border-white/10 ${activeClasses} focus:outline-none focus-visible:ring-2 focus-visible:ring-white`}
+                onClick={() => setActive(t.id)}
+                aria-current={active === t.id ? 'page' : undefined}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       );
     }
@@ -372,25 +616,29 @@
       const { state, setState, resetSeed, addProduct } = useERPState();
       const { kpis } = useCalculations(state);
       const [tab, setTab] = useState('cadastro');
-      return (
-        <div className="max-w-7xl mx-auto p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold">Simulador ERP — Empresa ALFA</h1>
-              <p className="text-sm text-gray-500">Custos fichas técnicas margens KPIs e ponto de equilíbrio</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="px-3 py-2 border rounded" onClick={resetSeed}>Recarregar dados</button>
-              <button className="px-3 py-2 border rounded bg-black text-white" onClick={addProduct}>Novo produto</button>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-2xl shadow p-6 grid md:grid-cols-4 gap-4">
-            <div><div className="text-sm text-gray-500">Receita</div><div className="text-2xl font-semibold">{fmt(kpis.totalRevenue)}</div></div>
-            <div><div className="text-sm text-gray-500">Margem de contribuição</div><div className="text-2xl font-semibold">{fmt(kpis.totalContribution)}</div></div>
-            <div><div className="text-sm text-gray-500">Resultado operacional</div><div className="text-2xl font-semibold">{fmt(kpis.operatingIncome)}</div></div>
-            <div><div className="text-sm text-gray-500">Custo médio unitário</div><div className="text-2xl font-semibold">{fmt(kpis.avgCostPerUnit)}</div></div>
-          </div>
+      // Conecta botões fixos do cabeçalho e da barra móvel
+      React.useEffect(() => {
+        const br = document.getElementById('btn-reset-desktop');
+        const bn = document.getElementById('btn-novo-desktop');
+        const brm = document.getElementById('btn-reset-mobile');
+        const bnm = document.getElementById('btn-novo-mobile');
+        if (br) br.onclick = resetSeed;
+        if (bn) bn.onclick = addProduct;
+        if (brm) brm.onclick = resetSeed;
+        if (bnm) bnm.onclick = addProduct;
+      }, [resetSeed, addProduct]);
+
+      return (
+        <div className="space-y-6">
+          <Card className="p-6">
+            <div className="grid md:grid-cols-4 gap-4">
+              <div><div className="text-sm text-white/70">Receita</div><div className="text-2xl font-semibold">{fmt(kpis.totalRevenue)}</div></div>
+              <div><div className="text-sm text-white/70">Margem de contribuição</div><div className="text-2xl font-semibold">{fmt(kpis.totalContribution)}</div></div>
+              <div><div className="text-sm text-white/70">Resultado operacional</div><div className="text-2xl font-semibold">{fmt(kpis.operatingIncome)}</div></div>
+              <div><div className="text-sm text-white/70">Custo médio unitário</div><div className="text-2xl font-semibold">{fmt(kpis.avgCostPerUnit)}</div></div>
+            </div>
+          </Card>
 
           <Tabs active={tab} setActive={setTab} />
 
@@ -401,9 +649,9 @@
           {tab === 'kpis' && <KPIs state={state} />}
           {tab === 'cenarios' && <Cenarios state={state} setState={setState} />}
 
-          <div className="bg-white rounded-2xl shadow p-6 text-sm text-gray-600">
-            Cadastre produtos componentes mão de obra e plano de produção altere câmbio e alíquotas observe o efeito no custo unitário margem de contribuição resultado e ponto de equilíbrio exporte o relatório e use para discutir preço mix e volume os cálculos usam custeio por absorção para custo total com rateio proporcional ao volume e custeio variável para a margem de contribuição
-          </div>
+          <Card className="p-6 text-sm text-white/70">
+            Cadastre produtos componentes mão de obra e plano de produção ajuste câmbio e alíquotas e avalie o efeito no custo unitário margem de contribuição resultado e ponto de equilíbrio exporte o relatório e use para discutir preço mix e volume os cálculos usam custeio por absorção para custo total com rateio proporcional ao volume e custeio variável para a margem de contribuição
+          </Card>
         </div>
       );
     }
